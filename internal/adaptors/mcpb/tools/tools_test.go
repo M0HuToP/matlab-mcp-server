@@ -20,7 +20,7 @@ func TestDefinitions_HappyPath(t *testing.T) {
 	})
 
 	// Assert
-	require.Len(t, defs, 5)
+	require.Len(t, defs, 34) // 5 core tools + 29 extended MATLAB/Simulink tools
 
 	expectedNames := []string{
 		"check_matlab_code",

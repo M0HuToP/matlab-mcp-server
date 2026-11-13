@@ -64,6 +64,7 @@ import (
 	customvalidator "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/custom/loader/validator"
 	detectmatlabtoolboxessinglesessiontool "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/detectmatlabtoolboxes"
 	evalmatlabcodesinglesessiontool "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/evalmatlabcode"
+	extendedtools "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/extended"
 	runmatlabfilesinglesessiontool "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/runmatlabfile"
 	runmatlabtestfilesinglesessiontool "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/runmatlabtestfile"
 	"github.com/matlab/matlab-mcp-server/internal/adaptors/messagecatalog"
@@ -244,13 +245,16 @@ func Initialize(serverDefinition ApplicationDefinition) *Application {
 		wire.Bind(new(sdk.TelemetryFactory), new(*telemetry.Factory)),
 
 		// MCP Server Configurator
-		configurator.New,
+		provideConfigurator,
 		wire.Bind(new(configurator.ConfigFactory), new(*config.Factory)),
 		wire.Bind(new(configurator.ApplicationDefinition), new(ApplicationDefinition)),
 		wire.Bind(new(configurator.CustomToolFactory), new(*custom.Factory)),
 
 		// Tools
 		wire.Bind(new(basetool.LoggerFactory), new(*logger.Factory)),
+
+		extendedtools.New,
+		wire.Bind(new(extendedtools.ConfigFactory), new(*config.Factory)),
 		wire.Bind(new(basetool.TelemetryFactory), new(*telemetry.Factory)),
 
 		listavailablematlabstool.New,

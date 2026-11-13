@@ -99,6 +99,17 @@ func New(
 	}
 }
 
+// WithExtraSingleSessionTools registers additional built-in single-session
+// tools (e.g. the extended MATLAB/Simulink toolset).
+func (c *Configurator) WithExtraSingleSessionTools(extra ...tools.Tool) *Configurator {
+	for _, t := range extra {
+		if t != nil {
+			c.singleSessionTools = append(c.singleSessionTools, t)
+		}
+	}
+	return c
+}
+
 func (c *Configurator) GetToolsToAdd() ([]tools.Tool, error) {
 	if !c.featuresProvider.Features().MATLAB.Enabled {
 		return []tools.Tool{}, nil

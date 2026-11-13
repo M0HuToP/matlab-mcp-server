@@ -1,4 +1,46 @@
-# MATLAB MCP Server
+# MATLAB MCP Server — Simulink/Simscape extended fork
+
+> [!IMPORTANT]
+> This is an **unofficial community fork** of [matlab/matlab-mcp-server](https://github.com/matlab/matlab-mcp-server) by MathWorks. It is not affiliated with or supported by MathWorks. Report problems with the extended tools in this repository, not to MathWorks.
+
+This fork adds 29 tools to the official server (see [Extended tools](#extended-tools-matlab-lifecycle-command-line-simulink-simscape)):
+
+- Start, restart and quit MATLAB on request, including a specific release (e.g. `R2024a`), with or without the desktop.
+- Run any MATLAB Command Window commands and operating-system shell commands.
+- Build complete Simulink and Simscape models automatically from blocks of any installed library, with signal and physical connections, nested subsystems, configuration, auto layout and compile check.
+- Search and inspect blocks of every installed library, including Simscape port names.
+- Run and control simulations (start/pause/stop), with Simscape logging, signal summaries and plots.
+- Create, open and close MATLAB/Simulink projects.
+
+Tested with MATLAB R2024a on Windows 11.
+
+### Build from source
+
+Requires [Go](https://go.dev/doc/install) (version from `go.mod`).
+
+```sh
+git clone <this repository>
+cd matlab-mcp-server
+go build -o matlab-mcp-server.exe ./cmd/matlab-mcp-server
+```
+
+Then register the binary with your AI application as described in [Manual Setup](#manual-setup), for example:
+
+```sh
+claude mcp add --transport stdio matlab -- C:\\path\\to\\matlab-mcp-server.exe
+```
+
+The Go module path is kept as `github.com/matlab/matlab-mcp-server` so that the fork can be merged with upstream updates; `go install github.com/matlab/matlab-mcp-server/...@latest` installs the **official** server, not this fork.
+
+### Changes compared with upstream
+
+- New: `internal/adaptors/mcp/tools/singlesession/extended/` (all extended tools), `internal/adaptors/globalmatlab/control.go`, `internal/wire/extended.go`.
+- Modified: `internal/adaptors/globalmatlab/sessionmanager/sessionmanager.go` (startup overrides: MATLAB root, desktop mode, starting folder), `internal/adaptors/mcp/server/configurator/configurator.go` (extra tools hook), `internal/wire/wire.go`, `internal/wire/wire_gen.go`, `internal/adaptors/mcpb/tools/tools.go` (+ test), `cmd/matlab-mcp-server/assets/instructions.txt`, this README.
+- The upstream GitHub workflows are kept unchanged to ease syncing with upstream; GitHub does not run them in forks unless Actions are enabled for the fork.
+
+The original MathWorks license ([LICENSE.md](LICENSE.md)) applies to the whole project, including the modifications: the software may only be used in conjunction with MathWorks products.
+
+---
 
 <p align="center">
   English •
@@ -180,6 +222,66 @@ Customize the behavior of the server by specifying arguments in one of these way
     - Executes a MATLAB test script and returns comprehensive test results. Designed specifically for MATLAB unit test files that follow MATLAB testing framework conventions.
     - Inputs:
         - `script_path` (string): Absolute path to the MATLAB test script file. Must be a valid MATLAB source file (`.m`) or P-code file (`.p`) containing MATLAB unit tests. Example: `C:\Users\username\tests\testMyFunction.m` or `/home/user/matlab/tests/test_analysis.m`.
+
+### Extended tools (MATLAB lifecycle, command line, Simulink, Simscape)
+
+Available in single-session mode (the default) in addition to the tools above:
+
+| Group | Tools |
+| --- | --- |
+| MATLAB lifecycle | `start_matlab` (release e.g. `R2024a`, root, desktop/nodesktop, restart, preload Simulink), `stop_matlab` (optionally save models / close project / quit shared MATLAB), `matlab_status`, `list_installed_matlabs` |
+| Command line | `run_matlab_command` (any Command Window commands, output per command), `run_shell_command` (cmd / PowerShell / sh), `get_matlab_workspace`, `get_matlab_help` |
+| Models | `simulink_new_model`, `simulink_open_model`, `simulink_save_model`, `simulink_close_model`, `simulink_get_model_structure` |
+| Libraries & blocks | `simulink_list_libraries`, `simulink_search_blocks`, `simulink_browse_library`, `simulink_get_block_info`, `simulink_add_block`, `simulink_delete_blocks`, `simulink_connect`, `simulink_delete_lines`, `simulink_set_params`, `simulink_get_params`, `simulink_arrange_layout`, `simulink_screenshot` |
+| Automatic construction | `simulink_build_model` - builds a whole Simulink/Simscape model (blocks from any library, nested subsystems, signal and physical connections, configuration, auto layout, compile check, save) from one declarative description |
+| Simulation | `simulink_run_simulation` (overrides, Simscape logging, signal summary, data, plots, .mat), `simulink_simulation_control` (start/stop/pause/continue/step/update/status) |
+| Projects | `simulink_project` (create, open, close, info, add files/path/startup file/shortcut, run checks, export, list models) |
+
+Example `simulink_build_model` input (RC circuit in Simscape):
+
+```json
+{
+  "model": "C:\work\rc_circuit.slx",
+  "mode": "overwrite",
+  "blocks": [
+    {"name": "Vs",     "source": "fl_lib/Electrical/Electrical Sources/DC Voltage Source", "params": {"v0": "12"}},
+    {"name": "R",      "source": "fl_lib/Electrical/Electrical Elements/Resistor",          "params": {"R": "1000"}},
+    {"name": "C",      "source": "fl_lib/Electrical/Electrical Elements/Capacitor",         "params": {"c": "1e-3"}},
+    {"name": "GND",    "source": "fl_lib/Electrical/Electrical Elements/Electrical Reference"},
+    {"name": "Solver", "source": "nesl_utility/Solver Configuration"},
+    {"name": "VSens",  "source": "fl_lib/Electrical/Electrical Sensors/Voltage Sensor"},
+    {"name": "PS2S",   "source": "nesl_utility/PS-Simulink Converter"},
+    {"name": "Out",    "source": "simulink/Sinks/Out1"}
+  ],
+  "connections": [
+    {"from": "Vs/rconn1",    "to": ["R/lconn1"]},
+    {"from": "R/rconn1",     "to": ["C/lconn1", "VSens/lconn1"]},
+    {"from": "C/rconn1",     "to": ["GND/lconn1", "Vs/lconn1", "VSens/rconn2"]},
+    {"from": "Solver/rconn1","to": ["GND/lconn1"]},
+    {"from": "VSens/rconn1", "to": ["PS2S/lconn1"]},
+    {"from": "PS2S/1",       "to": ["Out/1"]}
+  ],
+  "model_params": {"StopTime": "5"},
+  "update_diagram": true,
+  "screenshot": true
+}
+```
+
+Port names of a block (and therefore `lconnN` / `rconnN` numbering) can be checked with `simulink_get_block_info`: for Simscape blocks it returns `simscape_ports` (port IDs, labels, sides) and `simscape_port_map` (e.g. `lconn1 = +`, `rconn1 = V`, `rconn2 = -`).
+
+#### Block search index
+
+`simulink_search_blocks` searches an index of every block in every installed library (about 5,900 blocks in a full R2024a installation). Building it means loading all libraries and their sub-libraries with `load_system`, which takes 12-15 minutes the first time. The index is then stored in `prefdir/mcp_sl_block_index.mat`, so later searches take seconds, also after MATLAB or the computer is restarted. Tools that are given an exact block path (`simulink_build_model`, `simulink_add_block`, `simulink_get_block_info`, `simulink_browse_library`) never need the index.
+
+The index is stored per root library, together with the file name and modification date of the library and of every sub-library reached from it. On every search:
+
+| Change | Effect |
+| --- | --- |
+| Different index format version or MATLAB version (including Update/build number) | Full rebuild |
+| Toolbox / add-on / user library added (new `slblocks.m` on the path) | Only the new library is indexed |
+| Library removed from the path | Its entries are dropped |
+| A library file or one of its sub-library files changed on disk (add-on updated, user library edited and saved) | Only that library is re-indexed |
+| `refresh=true` | Full rebuild |
 
 ## Resources
 

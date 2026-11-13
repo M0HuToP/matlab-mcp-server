@@ -48,7 +48,6 @@ import (
 	"github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/resources/plaintextlivecodegeneration"
 	server3 "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/server"
 	"github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/server/clientinfostore"
-	"github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/server/configurator"
 	"github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/server/rootpathresolver"
 	"github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/server/rootstore"
 	"github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/server/sdk"
@@ -63,6 +62,7 @@ import (
 	"github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/custom/loader/validator"
 	detectmatlabtoolboxes2 "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/detectmatlabtoolboxes"
 	evalmatlabcode3 "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/evalmatlabcode"
+	"github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/extended"
 	runmatlabfile2 "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/runmatlabfile"
 	runmatlabtestfile2 "github.com/matlab/matlab-mcp-server/internal/adaptors/mcp/tools/singlesession/runmatlabtestfile"
 	"github.com/matlab/matlab-mcp-server/internal/adaptors/messagecatalog"
@@ -181,7 +181,8 @@ func Initialize(serverDefinition ApplicationDefinition) *Application {
 	assembler := functioncall.NewAssembler()
 	evalcustomtoolUsecase := evalcustomtool.New(assembler)
 	customFactory := custom.NewFactory(loaderLoader, loggerFactory, telemetryFactory, evalcustomtoolUsecase, globalMATLAB, factory)
-	configuratorConfigurator := configurator.New(factory, serverDefinition, tool, startmatlabsessionTool, stopmatlabsessionTool, evalmatlabcodeTool, tool2, checkmatlabcodeTool, detectmatlabtoolboxesTool, runmatlabfileTool, runmatlabtestfileTool, resource, plaintextlivecodegenerationResource, customFactory)
+	toolset := extended.New(loggerFactory, telemetryFactory, factory, globalMATLAB, matlabManager)
+	configuratorConfigurator := provideConfigurator(factory, serverDefinition, tool, startmatlabsessionTool, stopmatlabsessionTool, evalmatlabcodeTool, tool2, checkmatlabcodeTool, detectmatlabtoolboxesTool, runmatlabfileTool, runmatlabtestfileTool, resource, plaintextlivecodegenerationResource, customFactory, toolset)
 	serverServer := server3.New(sdkFactory, loggerFactory, lifecycleSignaler, configuratorConfigurator)
 	unixFacade := unix.New()
 	manager := resourcelimit.New(loggerFactory, unixFacade)

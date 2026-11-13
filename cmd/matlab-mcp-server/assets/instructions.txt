@@ -7,6 +7,19 @@ Available tools:
 - Execute inline MATLAB commands.
 - Execute a MATLAB script file (.m or .p).
 - Run a MATLAB test script.
+- Start, restart and quit MATLAB on request, including a specific release (start_matlab matlab_release='R2024a', stop_matlab, matlab_status, list_installed_matlabs).
+- Run any MATLAB Command Window commands (run_matlab_command) and OS shell commands (run_shell_command); inspect the workspace and help.
+- Build Simulink and Simscape models automatically from blocks of any installed library (simulink_build_model), or step by step (simulink_new_model, simulink_add_block, simulink_connect, simulink_set_params).
+- Find library blocks (simulink_list_libraries, simulink_search_blocks, simulink_browse_library, simulink_get_block_info).
+- Open, inspect, save, close models; run and control simulations (simulink_run_simulation, simulink_simulation_control); render diagrams (simulink_screenshot).
+- Create, open (start) and close (shut down) MATLAB/Simulink projects (simulink_project).
+
+Recommended Simulink workflow:
+
+1. If unsure about a block path, call simulink_search_blocks, then simulink_get_block_info to learn its ports and parameter names.
+2. Call simulink_build_model with all blocks, parameters and connections. Endpoints are 'Block/port': numbers for signal ports, lconnN/rconnN for Simscape physical ports.
+3. Simscape networks need nesl_utility/Solver Configuration, a domain reference block, and Simulink-PS / PS-Simulink converters at the boundary to Simulink signals.
+4. Use update_diagram=true and screenshot=true to validate, then simulink_run_simulation (plot=true) to check results.
 
 Available resources:
 

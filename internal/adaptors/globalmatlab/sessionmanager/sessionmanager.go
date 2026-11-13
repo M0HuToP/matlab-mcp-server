@@ -49,6 +49,40 @@ type SessionManager struct {
 	initErr           error
 	matlabRoot        string
 	matlabStartingDir string
+
+	overridesLock sync.Mutex
+	overrides     StartupOverrides
+}
+
+// StartupOverrides lets tools (e.g. start_matlab) change how the next MATLAB
+// session is launched without restarting the MCP server.
+type StartupOverrides struct {
+	// MATLABRoot, when non-empty, replaces the configured/auto-detected MATLAB root.
+	MATLABRoot string
+	// StartingFolder, when non-empty, replaces the configured starting folder.
+	StartingFolder string
+	// ShowDesktop, when non-nil, replaces the configured display mode.
+	ShowDesktop *bool
+	// ForceNewSession launches a new local MATLAB even in auto/existing session modes.
+	ForceNewSession bool
+}
+
+// SetStartupOverrides stores overrides used by subsequent StartSession calls.
+func (s *SessionManager) SetStartupOverrides(overrides StartupOverrides) {
+	s.overridesLock.Lock()
+	defer s.overridesLock.Unlock()
+	s.overrides = overrides
+}
+
+// ClearStartupOverrides restores the configured startup behaviour.
+func (s *SessionManager) ClearStartupOverrides() {
+	s.SetStartupOverrides(StartupOverrides{})
+}
+
+func (s *SessionManager) currentOverrides() StartupOverrides {
+	s.overridesLock.Lock()
+	defer s.overridesLock.Unlock()
+	return s.overrides
 }
 
 func New(
@@ -76,7 +110,12 @@ func (s *SessionManager) StartSession(ctx context.Context, logger entities.Logge
 	var sessionID entities.SessionID
 	var err error
 
-	switch cfg.MATLABSessionMode() {
+	sessionMode := cfg.MATLABSessionMode()
+	if s.currentOverrides().ForceNewSession {
+		sessionMode = entities.MATLABSessionModeNew
+	}
+
+	switch sessionMode {
 	case entities.MATLABSessionModeExisting:
 		sessionID, err = s.getSessionFromAttachingToExistingMATLAB(ctx, logger, cfg)
 		if err != nil {
@@ -139,18 +178,44 @@ func (s *SessionManager) initializeStartupConfig(ctx context.Context, logger ent
 }
 
 func (s *SessionManager) getSessionFromLocalMATLABInstallation(ctx context.Context, logger entities.Logger, cfg config.Config) (entities.SessionID, error) {
-	s.initOnce.Do(func() {
-		s.initErr = s.initializeStartupConfig(ctx, logger)
-	})
-	if s.initErr != nil {
+	if s.currentOverrides().MATLABRoot == "" {
+		s.initOnce.Do(func() {
+			s.initErr = s.initializeStartupConfig(ctx, logger)
+		})
+	}
+	if s.currentOverrides().MATLABRoot == "" && s.initErr != nil {
 		return 0, s.initErr
 	}
 
+	overrides := s.currentOverrides()
+
+	matlabRoot := s.matlabRoot
+	if overrides.MATLABRoot != "" {
+		matlabRoot = overrides.MATLABRoot
+	}
+
+	startingDir := s.matlabStartingDir
+	if startingDir == "" && overrides.MATLABRoot != "" {
+		// The root was overridden, so initializeStartupConfig did not run:
+		// still honour the configured / MCP-root based starting folder.
+		if dir, err := s.matlabStartingDirSelector.SelectMATLABStartingDir(logger); err == nil {
+			startingDir = dir
+		}
+	}
+	if overrides.StartingFolder != "" {
+		startingDir = overrides.StartingFolder
+	}
+
+	showDesktop := cfg.ShouldShowMATLABDesktop()
+	if overrides.ShowDesktop != nil {
+		showDesktop = *overrides.ShowDesktop
+	}
+
 	startRequest := entities.LocalSessionDetails{
-		MATLABRoot:             s.matlabRoot,
-		IsStartingDirectorySet: s.matlabStartingDir != "",
-		StartingDirectory:      s.matlabStartingDir,
-		ShowMATLABDesktop:      cfg.ShouldShowMATLABDesktop(),
+		MATLABRoot:             matlabRoot,
+		IsStartingDirectorySet: startingDir != "",
+		StartingDirectory:      startingDir,
+		ShowMATLABDesktop:      showDesktop,
 	}
 
 	return s.matlabManager.StartMATLABSession(ctx, logger, startRequest)

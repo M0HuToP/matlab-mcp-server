@@ -11,3 +11,8 @@ CLAUDE.md
 *.swp
 *.swo
 matlab/matlab_mcp_toolbox/mcp/+matlab_mcp/
+
+# Local build output
+/bin/
+*.exe
+
